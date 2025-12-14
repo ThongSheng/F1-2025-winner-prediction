@@ -1,13 +1,8 @@
 ####### Setup ##############
 
 library(tidyverse)
-library(dplyr)
-library(ggplot2)
 library(corrplot)
 library(tidymodels)
-library(xgboost)
-library(ranger)
-library(kknn)
 
 set.seed(123)
 
@@ -234,6 +229,4 @@ base_rec <- recipe(cs_position ~ ., data = train_data) |>
   # ID Variables: Not used for prediction
   update_role(raceId, year, round, constructorId, constructor, new_role = "ID") |> 
   step_dummy(all_nominal_predictors()) |>
-  step_normalize(all_numeric_predictors()) |>
-  step_zv(all_predictors())
-
+  step_normalize(all_numeric_predictors())
