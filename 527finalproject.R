@@ -230,3 +230,148 @@ base_rec <- recipe(cs_position ~ ., data = train_data) |>
   update_role(raceId, year, round, constructorId, constructor, new_role = "ID") |> 
   step_dummy(all_nominal_predictors()) |>
   step_normalize(all_numeric_predictors())
+
+
+
+library(kknn)
+##### KNN code 
+
+# recipe
+f1_rec <- recipe(
+  cs_position ~ avg_qual_position + avg_lap_time + avg_stop_time,
+  data = train_data
+) |>
+  step_impute_median(all_numeric_predictors()) |>
+  step_normalize(all_numeric_predictors())
+
+# prep and bake
+f1_prep <- prep(f1_rec, train_data)
+f1_baked <- bake(f1_prep, train_data)
+summary(f1_baked)
+
+# KNN model (regression) - treating cs_position as numeric here since it's ranked (we then compare with the ordinal regression model)
+knn_model <- nearest_neighbor(
+  neighbors = tune()
+) |>
+  set_engine("kknn") |>
+  set_mode("regression")
+
+# fit
+knn_wf <- workflow() |>
+  add_recipe(f1_rec) |>
+  add_model(knn_model)
+
+# predict
+predict(knn_fit, f1_baked) |>
+  mutate(truth = f1_baked$cs_position) |>
+  head()
+
+# evaluate on test data
+f1_test_baked <- bake(f1_prep, test_data)
+
+f1_preds <- predict(knn_fit, f1_test_baked) |>
+  mutate(truth = f1_test_baked$cs_position)
+
+metrics(f1_preds,
+        truth = truth,
+        estimate = .pred)
+
+
+# validate KNN with Cross-Validation
+set.seed(123)
+cv_folds <- vfold_cv(df, v = 5)
+
+knn_res <- tune_grid(
+  knn_wf,
+  resamples = cv_folds,
+  grid = tibble(neighbors = seq(3, 25, by = 2)),
+  metrics = metric_set(rmse, mae)
+)
+
+collect_metrics(knn_res)
+
+### Final model with best k
+best_k <- select_best(knn_res, metric="rmse")
+best_k
+
+final_knn <- finalize_workflow(knn_wf, best_k) |>
+  fit(train_data)
+
+# Evaluate on test dataset
+knn_preds <- predict(final_knn, test_data) |>
+  bind_cols(test_data)
+
+# RMSE of 1.76 which means on average, the KNN model predicts a team's 
+#rank within 1.76 of the true value
+metrics(knn_preds,
+        truth = cs_position,
+        estimate = .pred)
+
+
+
+
+
+
+
+##### Random Forest 
+
+library(randomForest)
+
+# recipe for random forest
+rf_rec <- recipe(
+  cs_position ~ avg_qual_position + avg_lap_time + avg_stop_time,
+  data = train_data
+) |>
+  step_impute_median(all_numeric_predictors()) |>
+  step_normalize(all_numeric_predictors())
+
+# model specification
+rf_spec <- rand_forest(
+  mtry = tune(),
+  trees = 500,
+  min_n = tune()
+) |>
+  set_engine("randomForest") |>
+  set_mode("regression")
+
+# workflow
+rf_wf <- workflow() |>
+  add_recipe(rf_rec) |>
+  add_model(rf_spec)
+
+
+# cross validation
+set.seed(123)
+cv_folds <- vfold_cv(train_data, v = 5, strata = cs_position)
+
+rf_grid <- grid_regular(
+  mtry(range = c(1, 3)),   # we have 3 predictors
+  min_n(range = c(2, 10)),
+  levels = 5
+)
+
+rf_res <- tune_grid(
+  rf_wf,
+  resamples = cv_folds,
+  grid = rf_grid,
+  metrics = metric_set(rmse, mae, rsq)
+)
+
+collect_metrics(rf_res)
+
+# select best hyperparameters
+best_rf <- select_best(rf_res, metric = "rmse")
+best_rf
+
+# fit final random forest model 
+final_rf <- finalize_workflow(rf_wf, best_rf) |>
+  fit(train_data)
+
+# predict on test set
+rf_preds <- predict(final_rf, test_data) |>
+  bind_cols(test_data)
+
+#Performance - RMSE of 1.79, MAE of 1.42
+metrics(rf_preds, truth = cs_position, estimate = .pred)
+
+
