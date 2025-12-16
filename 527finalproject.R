@@ -237,10 +237,8 @@ library(kknn)
 ##### KNN code 
 
 # recipe
-f1_rec <- recipe(
-  cs_position ~ avg_qual_position + avg_lap_time + avg_stop_time,
-  data = train_data
-) |>
+f1_rec <- recipe(cs_position ~ ., data = train_data) |>
+  update_role(raceId, year, round, constructorId, constructor, new_role = "ID") |>
   step_impute_median(all_numeric_predictors()) |>
   step_normalize(all_numeric_predictors())
 
@@ -301,8 +299,8 @@ final_knn <- finalize_workflow(knn_wf, best_k) |>
 knn_preds <- predict(final_knn, test_data) |>
   bind_cols(test_data)
 
-# RMSE of 1.76 which means on average, the KNN model predicts a team's 
-#rank within 1.76 of the true value
+# RMSE of 1.61 which means on average, the KNN model predicts a team's 
+#rank within 1.61 of the true value
 metrics(knn_preds,
         truth = cs_position,
         estimate = .pred)
@@ -318,12 +316,10 @@ metrics(knn_preds,
 library(randomForest)
 
 # recipe for random forest
-rf_rec <- recipe(
-  cs_position ~ avg_qual_position + avg_lap_time + avg_stop_time,
-  data = train_data
-) |>
-  step_impute_median(all_numeric_predictors()) |>
-  step_normalize(all_numeric_predictors())
+rf_rec <- recipe(cs_position ~ ., data = train_data) |>
+  update_role(raceId, constructorId, constructor, new_role = "ID") |>
+  step_impute_median(all_numeric_predictors())
+
 
 # model specification
 rf_spec <- rand_forest(
@@ -371,7 +367,8 @@ final_rf <- finalize_workflow(rf_wf, best_rf) |>
 rf_preds <- predict(final_rf, test_data) |>
   bind_cols(test_data)
 
-#Performance - RMSE of 1.79, MAE of 1.42
+#Performance - RMSE of 1.59, MAE of 1.27
 metrics(rf_preds, truth = cs_position, estimate = .pred)
+
 
 
