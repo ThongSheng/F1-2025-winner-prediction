@@ -98,25 +98,7 @@ f1_colors <- c(
   "williams"      = "#005AFF"
 )
 
-### Line plots
-
-# Team's avg finishing position over time 
-plot_df <- df %>%
-  group_by(year, constructor) %>%
-  summarise(mean_finish = mean(avg_final_position, na.rm = TRUE), .groups = "drop")
-
-ggplot(plot_df, aes(x = year, y = mean_finish, color = constructor, group = constructor)) +
-  geom_line(linewidth = 1) +
-  geom_point(size = 2) +
-  scale_y_reverse() +   # because 1st place is better
-  scale_color_manual(values = f1_colors) + 
-  labs(
-    title = "Constructor Performance Over Time (Average Final Position)",
-    x = "Year",
-    y = "Average Final Position",
-    color = "Constructor"
-  ) +
-  theme_minimal(base_size = 14)
+### Line Plots
 
 # Team's championship rankings over the years
 df %>%
@@ -125,35 +107,35 @@ df %>%
   ggplot(aes(x = year, y = mean_cs, color = constructor, group = constructor)) +
   geom_line(linewidth = 1.2) +
   geom_point(size = 2) +
-  scale_y_reverse() +  # Lower ranks (1st place) at the top
+  scale_y_reverse(breaks=1:10) +  # Lower ranks (1st place) at the top
   scale_color_manual(values = f1_colors) + 
-  labs(title = "Constructor Championship Rankings Over Years",
-       x = "Year",
-       y = "Average Championship Position",
+  labs(x = "Year",
+       y = "Championship Position",
        color = "Constructor") +
   theme_minimal(base_size = 14)
 
-
-
-# Team's qualifying performance over time
+# Team's avg finishing position and qualifying performance over time 
 plot_df <- df %>%
   group_by(year, constructor) %>%
-  summarise(mean_qual = mean(avg_qual_position, na.rm = TRUE), .groups = "drop")
+  summarise(
+    Qualifying = mean(avg_qual_position, na.rm = TRUE),
+    Grand_Prix = mean(avg_final_position, na.rm = TRUE),
+    .groups = "drop"
+  ) %>%
+  pivot_longer(cols = c(Qualifying, Grand_Prix), names_to = "Metric", values_to = "Position")
 
-ggplot(plot_df, aes(x = year, y = mean_qual, color = constructor)) +
+ggplot(plot_df, aes(x = year, y = Position, color = constructor, group = constructor)) +
   geom_line(linewidth = 1) +
   geom_point(size = 2) +
-  scale_y_reverse() +
-  scale_color_manual(values = f1_colors) + 
+  scale_y_reverse() +   
+  scale_color_manual(values = f1_colors) +
+  facet_wrap(~Metric) + 
   labs(
-    title = "Constructor Qualifying Performance Over Time",
     x = "Year",
-    y = "Average Qualifying Position",
+    y = "Average Position",
     color = "Constructor"
   ) +
   theme_minimal(base_size = 14)
-
-
 
 # Bar plot of mean lap time by team
 mean_lap_df <- df %>%
@@ -164,7 +146,6 @@ mean_lap_df <- df %>%
 ggplot(mean_lap_df, aes(x = reorder(constructor, mean_lap_time), y = mean_lap_time, fill=constructor)) +
   geom_col() +
   labs(
-    title = "Mean Average Lap Time per Constructor",
     x = "Constructor",
     y = "Mean Lap Time (ms)"
   ) +
@@ -181,8 +162,7 @@ df_heat <- df %>%
 ggplot(df_heat, aes(x = factor(year), y = constructor, fill = mean_cs)) +
   geom_tile(color = "white") +
   scale_fill_viridis_c(direction = -1) +  # Darker = better rank
-  labs(title = "Heatmap of Constructor Championship Rankings",
-       x = "Year",
+  labs(x = "Year",
        y = "Constructor",
        fill = "CS Position") +
   theme_minimal() +
@@ -195,8 +175,7 @@ ggplot(df, aes(x = avg_qual_position, y = avg_lap_time, color = constructor)) +
   geom_point() +
   scale_color_manual(values = f1_colors) + 
   facet_wrap(~ constructor, scales = "free") +
-  labs(title = "Qualifying vs Lap Time Across Teams",
-       x = "Average Qualifying Position",
+  labs(x = "Average Qualifying Position",
        y = "Average Lap Time") +
   theme_minimal() +
   theme(legend.position = "none")
@@ -214,7 +193,6 @@ corrplot(cor(cor_data),
          addCoef.col = "black",
          tl.col = "black",
          tl.srt = 45,
-         title = "Correlation Matrix of Predictors",
          mar = c(0,0,2,0))
 
 
@@ -421,6 +399,7 @@ lm_2025_preds <- predict(final_lm, df_2025) %>%
 lm_2025_preds %>%
   select(constructor, predicted_rank = .pred)
 
+
 ############### Result Visualizations #######################
 
 ### Ranking results 
@@ -441,7 +420,6 @@ lm_2025_plot <- lm_2025_preds %>%
 ggplot(knn_2025_plot, aes(x = reorder(constructor, -predicted_rank), y = predicted_rank)) +
   geom_col(fill = "steelblue") +  
   labs(
-    title = "Predicted 2025 Rankings",
     x = "Constructor",
     y = "Predicted Rank"
   ) +
@@ -453,7 +431,6 @@ ggplot(knn_2025_plot, aes(x = reorder(constructor, -predicted_rank), y = predict
 ggplot(rf_2025_plot, aes(x = reorder(constructor, -predicted_rank), y = predicted_rank)) +
   geom_col(fill = "firebrick") +
   labs(
-    title = "Predicted 2025 Rankings",
     x = "Constructor",
     y = "Predicted Rank"
   ) +
@@ -464,7 +441,6 @@ ggplot(rf_2025_plot, aes(x = reorder(constructor, -predicted_rank), y = predicte
 ggplot(lm_2025_plot, aes(x = reorder(constructor, -predicted_rank), y = predicted_rank)) +
   geom_col(fill = "limegreen") +
   labs(
-    title = "Predicted 2025 Rankings",
     x = "Constructor",
     y = "Predicted Rank"
   ) +
@@ -488,7 +464,6 @@ ggplot(all_preds, aes(x = cs_position, y = .pred, color = model)) +
   scale_x_reverse() +
   scale_y_reverse() +
   labs(
-    title = "Predicted vs Actual Championship Rank",
     x = "Actual Championship Rank",
     y = "Predicted Championship Rank",
     color = "Model"
