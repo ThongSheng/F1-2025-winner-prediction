@@ -301,6 +301,42 @@ metrics(knn_preds,
         truth = cs_position,
         estimate = .pred)
 
+### KNN predictions for 2025 winner using past 5 years weighted data
+
+df_2025 <- df %>%
+  filter(year >= 2020, year <= 2024) %>%
+  mutate(weight = case_when(
+    year == 2024 ~ 5,
+    year == 2023 ~ 4,
+    year == 2022 ~ 3,
+    year == 2021 ~ 2,
+    year == 2020 ~ 1
+  )) %>%
+  group_by(constructor, constructorId) %>%
+  summarise(
+    avg_qual_position = weighted.mean(avg_qual_position, weight),
+    avg_lap_time      = weighted.mean(avg_lap_time, weight),
+    avg_stop_time     = weighted.mean(avg_stop_time, weight),
+    avg_final_grid    = weighted.mean(avg_final_grid, weight),
+    avg_final_position= weighted.mean(avg_final_position, weight),
+    avg_cs_position   = weighted.mean(cs_position, weight),
+    .groups = "drop"
+  ) %>%
+  mutate(
+    raceId = -1,
+    year   = 2025,
+    round  = 0
+  )
+
+knn_2025_preds <- predict(final_knn, df_2025) |>
+  bind_cols(df_2025) |>
+  arrange(.pred)
+
+knn_2025_preds |>
+  select(constructor, predicted_rank = .pred) 
+
+
+
 
 
 
@@ -367,7 +403,58 @@ rf_preds <- predict(final_rf, test_data) |>
 metrics(rf_preds, truth = cs_position, estimate = .pred)
 
 
-### Visualization: Predicted vs Actual Championship Rank for KNN and Random Forest
+### Predict RF winner using past 5 years weighted
+rf_2025_preds <- predict(final_rf, df_2025) %>%
+  bind_cols(df_2025) %>%
+  arrange(.pred)
+
+rf_2025_preds %>%
+  select(constructor, predicted_rank = .pred)
+
+
+
+
+############### Result Visualizations #######################
+
+### Ranking results 
+# Convert continuous predictions to ordinal ranks
+knn_2025_plot <- knn_2025_preds %>%
+  mutate(predicted_rank = rank(.pred, ties.method = "first")) %>%
+  select(constructor, predicted_rank)
+
+rf_2025_plot <- rf_2025_preds %>%
+  mutate(predicted_rank = rank(.pred, ties.method = "first")) %>%
+  select(constructor, predicted_rank)
+
+# KNN
+ggplot(knn_2025_plot, aes(x = reorder(constructor, -predicted_rank), y = predicted_rank)) +
+  geom_col(fill = "steelblue") +  
+  labs(
+    title = "Predicted 2025 Rankings",
+    x = "Constructor",
+    y = "Predicted Rank"
+  ) +
+  coord_flip() +  # Makes it horizontal
+  theme_minimal(base_size = 14)
+
+
+# Random Forest 
+ggplot(rf_2025_plot, aes(x = reorder(constructor, -predicted_rank), y = predicted_rank)) +
+  geom_col(fill = "firebrick") +
+  labs(
+    title = "Predicted 2025 Rankings",
+    x = "Constructor",
+    y = "Predicted Rank"
+  ) +
+  coord_flip() +
+  theme_minimal(base_size = 14)
+
+
+
+
+
+
+### Predicted vs Actual Championship Rank for KNN and Random Forest
 
 all_preds <- bind_rows(
   knn_preds %>% mutate(model = "KNN"),
@@ -380,11 +467,9 @@ ggplot(all_preds, aes(x = cs_position, y = .pred, color = model)) +
   scale_x_reverse() +
   scale_y_reverse() +
   labs(
-    title = "Predicted vs Actual Constructor Championship Rank",
+    title = "Predicted vs Actual Championship Rank",
     x = "Actual Championship Rank",
     y = "Predicted Championship Rank",
     color = "Model"
   ) +
   theme_minimal(base_size = 14)
-
-
