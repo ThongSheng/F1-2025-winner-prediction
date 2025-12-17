@@ -371,4 +371,23 @@ rf_preds <- predict(final_rf, test_data) |>
 metrics(rf_preds, truth = cs_position, estimate = .pred)
 
 
+### Visualization: Predicted vs Actual Championship Rank for KNN and Random Forest
+
+all_preds <- bind_rows(
+  knn_preds %>% mutate(model = "KNN"),
+  rf_preds  %>% mutate(model = "Random Forest")
+)
+
+ggplot(all_preds, aes(x = cs_position, y = .pred, color = model)) +
+  geom_point(alpha = 0.6) +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed") +
+  scale_x_reverse() +
+  scale_y_reverse() +
+  labs(
+    title = "Predicted vs Actual Constructor Championship Rank",
+    x = "Actual Championship Rank",
+    y = "Predicted Championship Rank",
+    color = "Model"
+  ) +
+  theme_minimal(base_size = 14)
 
