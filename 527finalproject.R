@@ -259,10 +259,6 @@ knn_wf <- workflow() |>
   add_recipe(f1_rec) |>
   add_model(knn_model)
 
-# predict
-predict(knn_fit, f1_baked) |>
-  mutate(truth = f1_baked$cs_position) |>
-  head()
 
 # evaluate on test data
 f1_test_baked <- bake(f1_prep, test_data)
@@ -390,4 +386,5 @@ ggplot(all_preds, aes(x = cs_position, y = .pred, color = model)) +
     color = "Model"
   ) +
   theme_minimal(base_size = 14)
+
 
