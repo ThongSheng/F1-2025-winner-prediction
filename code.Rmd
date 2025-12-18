@@ -21,8 +21,7 @@ library(randomForest)
 set.seed(123)
 
 # Import dataset
-dir <- "~/Documents/STAT 527/archive (3)/"
-#dir <- "C:/Users/thong/Downloads/archive/"
+dir <- "~/Documents/STAT 527/data/" # change this to match
 files <- c("constructor_standings",
            "constructors",
            "drivers",
@@ -506,6 +505,7 @@ ggplot(all_preds, aes(x = cs_position, y = .pred, color = model)) +
 
 
 ```
+
 
 
 
